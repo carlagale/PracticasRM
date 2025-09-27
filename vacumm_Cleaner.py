@@ -2,81 +2,87 @@ import WebGUI
 import HAL
 import Frequency
 import math
-import random
 import time
 
 turn_start_time = None
 forward_start_time = None
-distance_start_time = None
+spiral_start_time = None
 
-def spiral(v):
-    HAL.setV(v)
-    HAL.setW(1)
+def spiral_concentrica(tiempo_actual):
+    
+    radio_inicial = 0.3      # Radio inicial pequeño
+    factor_crecimiento = 0.03  
+    
+    radio = radio_inicial + factor_crecimiento * tiempo_actual
+    
+    # Velocidad lineal constante
+    v_lineal = 0.2
+    
+    # Velocidad angular = v_lineal / radio (para mantener círculo)
+    if radio > 0.1:
+        v_angular = v_lineal / radio
+    else:
+        v_angular = 2.0
+    
+    # Limitar velocidades
+    v_angular = min(v_angular, 1.5)
+    
+    HAL.setV(v_lineal)
+    HAL.setW(v_angular)
+    
+    return radio
 
 def turn():
+    #Giro de 90 grados
     HAL.setV(0)
     HAL.setW(0.6)
 
 def main():
-    global turn_start_time, forward_start_time, distance_start_time
+    global turn_start_time, forward_start_time, spiral_start_time
     
-    v = 0.05
     state = "SPIRAL"
+    spiral_start_time = time.time()
     
     while True:
         
         if state == "SPIRAL":
+            current_time = time.time()
+            tiempo_en_espiral = current_time - spiral_start_time
+            
+            # Ejecutar espiral
+            radio_actual = spiral_concentrica(tiempo_en_espiral)
+            
             if HAL.getBumperData().state == 1:
-                # ✅ Choque detectado: iniciar giro 90°
                 state = "TURN"
                 turn_start_time = time.time()
-                print("Choque detectado → Girando 90°")
-            else:
-                spiral(v)
-                v = v + 0.01
-                
-                if v > 2:
-                    # ✅ Espiral completa: avanzar recto 1m
-                    state = "FORWARD" 
-                    forward_start_time = time.time()
-                    v = 0.05  # Resetear velocidad para próxima espiral
-                    print("Espiral completa → Avanzando 1m")
-
+        
         elif state == "TURN":
             current_time = time.time()
             tiempo_giro = current_time - turn_start_time
-            tiempo_giro_necesario = (math.pi/2) / 0.6  # ≈ 2.62s para 90°
+            tiempo_giro_necesario = (math.pi/2) / 0.6  # ≈ 2.62s para 90 grados
             
             if tiempo_giro < tiempo_giro_necesario:
                 turn()
-                print(f"Girando... {tiempo_giro:.1f}s de {tiempo_giro_necesario:.1f}s")
             else:
-                # ✅ Giro completado: avanzar 1m recto
                 state = "FORWARD"
                 forward_start_time = time.time()
-                print("Giro 90° completado → Avanzando 1m")
-
+        
         elif state == "FORWARD":
             current_time = time.time()
             tiempo_avance = current_time - forward_start_time
+            tiempo_necesario = 1  
             
-            # ✅ Verificar choque durante el avance
             if HAL.getBumperData().state == 1:
                 state = "TURN"
                 turn_start_time = time.time()
-                print("Choque durante avance → Girando 90°")
             
-            # ✅ Avanzar recto durante ~3.3s para 1m (a 0.3 m/s)
-            elif tiempo_avance < 3.3:  # 1m / 0.3 m/s ≈ 3.3s
-                HAL.setV(0.3)
+            elif tiempo_avance < tiempo_necesario:
+                HAL.setV(0.5)
                 HAL.setW(0)
-                print(f"Avanzando... {tiempo_avance:.1f}s")
             
             else:
-                # ✅ 1m completado sin choques: volver a espiral
                 state = "SPIRAL"
-                v = 0.05  # Resetear velocidad de espiral
-                print("1m avanzado → Volviendo a espiral")
+                spiral_start_time = time.time()  # Reset timer
 
         Frequency.tick()
 
