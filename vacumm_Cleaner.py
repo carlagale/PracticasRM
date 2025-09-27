@@ -70,7 +70,7 @@ def main():
         elif state == "FORWARD":
             current_time = time.time()
             tiempo_avance = current_time - forward_start_time
-            tiempo_necesario = 1  
+            tiempo_necesario = 2  
             
             if HAL.getBumperData().state == 1:
                 state = "TURN"
